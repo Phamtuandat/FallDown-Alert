@@ -9,6 +9,8 @@ import {
     Alert,
 } from 'react-native';
 import { Menu, Divider, Provider } from 'react-native-paper';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/services/Firebase';
 
 export default function DeviceDetail() {
     const { device_id } = useLocalSearchParams();
@@ -27,10 +29,45 @@ export default function DeviceDetail() {
             title: `Device ${device_id}`,
             headerBackVisible: false,
         });
+
+        const fetchDevice = async () => {
+            if (!device_id) return;
+
+            try {
+                const docRef = doc(db, 'devices', String(device_id));
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    setDeviceName(data.name || '');
+                    setPhoneNumber(data.phone || '');
+                    setStatus(data.status || 'Active');
+                } else {
+                    Alert.alert('Error', 'Device not found.');
+                }
+            } catch (error) {
+                console.error('Error fetching device:', error);
+                Alert.alert('Error', 'Failed to fetch device data.');
+            }
+        };
+
+        fetchDevice();
     }, [device_id]);
 
-    const handleSave = () => {
-        Alert.alert('Saved', `Device ${device_id} updated:\nName: ${deviceName}\nPhone: ${phoneNumber}\nStatus: ${status}`);
+    const handleSave = async () => {
+        try {
+            const docRef = doc(db, 'devices', String(device_id));
+            await updateDoc(docRef, {
+                name: deviceName,
+                phone: phoneNumber,
+                status,
+            });
+
+            Alert.alert('Saved', `Device ${device_id} updated successfully!`);
+        } catch (error) {
+            console.error('Error updating device:', error);
+            Alert.alert('Error', 'Failed to update device.');
+        }
     };
 
     return (

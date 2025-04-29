@@ -1,32 +1,22 @@
 import { Link } from 'expo-router';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AntDesign } from '@expo/vector-icons';
-import { getDatabase, ref, onValue, set, push } from 'firebase/database';
-import { initializeApp } from 'firebase/app';
+import { ref, onValue, set, push } from 'firebase/database';
+import { addDoc, collection, getDocs } from 'firebase/firestore';
 import { useAuth } from '@/context/Authprovider';
 import * as Notifications from 'expo-notifications';
-import { Device } from '@/models/Device';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBwoVtmXhoe0X1H43yDXRBJ-4oGT-qrtdI",
-  authDomain: "emergency-4aecc.firebaseapp.com",
-  databaseURL: "https://emergency-4aecc-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "emergency-4aecc",
-  storageBucket: "emergency-4aecc.firebasestorage.app",
-  messagingSenderId: "300222582072",
-  appId: "1:300222582072:web:c50a128ca1cdf31db745cd",
-  measurementId: "G-SLEM3KQSCX"
-};
-
-const app = initializeApp(firebaseConfig);
+import { Device, DeviceStatus } from '@/models/Device';
+import { db, rtdb } from '@/services/Firebase';
+import { AlertMessage } from '@/models/AlertMessage';
 
 export default function HomeScreen() {
+  const isInitialLoad = useRef(true);
   const navigation = useNavigation();
   const { logout } = useAuth();
-  const [activeDeviceList, setActiveDeviceList] = useState<Device[]>([]);
-  const [alertMessages, setAlertMessages] = useState<{ id: string; text: string; timestamp: number }[]>([]);
+  const [alertMessages, setAlertMessages] = useState<AlertMessage[]>([]);
+  const [deviceStatus, setDeviceStatus] = useState<DeviceStatus[]>([]);
 
   // Header logout button
   useLayoutEffect(() => {
@@ -38,47 +28,79 @@ export default function HomeScreen() {
       ),
     });
   }, [navigation]);
+
+
+
+  // Fetch device status
   useEffect(() => {
-    const sendMessageToRTDB = async (message: string) => {
-      const db = getDatabase();
-      const messagesRef = ref(db, 'alerts/device1');
+    const statusRef = ref(rtdb, 'ESP32/Devices');
+    let unsubscribe: () => void;
 
-      const newMessage = {
-        text: message,
-        timestamp: Date.now(),
-      };
+    const fetchAndListenDevices = async () => {
+      const devicesCol = collection(db, 'devices');
+      const deviceSnapshot = await getDocs(devicesCol);
 
-      await push(messagesRef, newMessage);
+      let firestoreDevices = deviceSnapshot.docs.map((doc) => ({
+        device_id: doc.id,
+        ...doc.data(),
+      })) as Device[];
+
+      if (firestoreDevices.length === 0) {
+        const defaultDevice: Device = {
+          name: 'Demo Device',
+          createdAt: Date.now(),
+          phone: '1234567890',
+          email: 'test@example.com',
+          owner: 'John Doe',
+        };
+
+        const docRef = await addDoc(devicesCol, defaultDevice);
+        const defaultStatus: DeviceStatus = {
+          lastSeen: Date.now(),
+          location: 'Unknown',
+          status: 'Active',
+          name: defaultDevice.name,
+          device_id: docRef.id,
+        };
+
+        firestoreDevices.push({
+          device_id: docRef.id,
+          ...defaultDevice,
+        });
+        await set(ref(rtdb, `ESP32/Devices/${docRef.id}`), defaultStatus);
+      }
+
+      unsubscribe = onValue(statusRef, (snapshot) => {
+        const statusData = snapshot.val();
+        const mergedStatuses: DeviceStatus[] = firestoreDevices.map((device) => {
+          const statusEntry = statusData?.[device.device_id || ''] || {};
+          const lastSeen = statusEntry.lastSeen;
+          const isOffline = Date.now() - lastSeen > 5 * 60 * 1000;
+
+          return {
+            device_id: device.device_id,
+            name: device.name,
+            location: statusEntry.location || 'Unknown',
+            lastSeen,
+            status: isOffline ? 'Inactive' : 'Active',
+          };
+        });
+
+        setDeviceStatus(mergedStatuses);
+      });
     };
 
-    // Push message after 2 seconds (optional delay)
-    const timer = setTimeout(() => {
-      sendMessageToRTDB("device is raising a falldown alert!");
-    }, 10000); // 10 seconds
+    fetchAndListenDevices();
+    const interval = setInterval(() => {
+      fetchAndListenDevices();
+    }, 5 * 60 * 1000);
 
-    return () => clearTimeout(timer);
-  }, []);
-  useEffect(() => {
-    const db = getDatabase(app);
-    const deviceStatusRef = ref(db, 'ESP32/Devices');
-
-    const unsubscribe = onValue(deviceStatusRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const devicesArray = Object.keys(data).map((key) => ({
-          device_id: key,
-          ...data[key],
-        }));
-        setActiveDeviceList(devicesArray);
-      } else {
-        setActiveDeviceList([]);
-      }
-    });
-
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
-  // Notification setup
   useEffect(() => {
     (async () => {
       await Notifications.setNotificationChannelAsync('default', {
@@ -101,57 +123,66 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  const addNewDevice = () => {
-
-  };
   useEffect(() => {
-    const db = getDatabase();
-    const messagesRef = ref(db, 'alerts/device1');
+    const messagesRef = ref(rtdb, 'alerts');
 
     const unsubscribe = onValue(messagesRef, async (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const messagesArray = Object.entries(data).map(([key, value]: any) => ({
-          id: key,
-          ...value,
-        }));
+        const messagesArray: AlertMessage[] = [];
 
-        messagesArray.sort((a, b) => b.timestamp - a.timestamp);
+        Object.entries(data).forEach(([deviceKey, messages]: any) => {
+          Object.entries(messages).forEach(([msgId, msgData]: any) => {
+            messagesArray.push({
+              device: deviceKey,
+              id: msgId,
+              ...msgData,
+            });
+          });
+        });
+
+        messagesArray.sort((a, b) => b.createdAt - a.createdAt);
         setAlertMessages(messagesArray);
 
-        // ✅ Show notification for the most recent message
         const latestMessage = messagesArray[0];
-        if (latestMessage) {
+        if (!isInitialLoad.current && latestMessage) {
           await Notifications.scheduleNotificationAsync({
             content: {
               title: '🚨 Fall Alert',
-              body: latestMessage.text,
+              body: latestMessage.message,
               sound: true,
             },
-            trigger: null, // immediate
+            trigger: null,
           });
         }
+
+        isInitialLoad.current = false;
       }
     });
 
     return () => unsubscribe();
   }, []);
+
+  const addNewDevice = () => {
+    alert('Work in progress');
+  };
+
   const renderDeviceStatus = () => {
-    if (activeDeviceList.length === 0) {
+    if (deviceStatus.length === 0) {
       return <Text>No devices added yet.</Text>;
     }
 
-    return activeDeviceList.map((device) => (
+    return deviceStatus.map((device) => (
       <Link
         key={device.device_id}
         href={{
           pathname: '/device/[device_id]',
-          params: { device_id: device.device_id },
+          params: { device_id: device.device_id || 'unknown' },
         }}
         asChild
       >
         <TouchableOpacity style={styles.deviceItem}>
-          <Text style={styles.deviceText}>Device ID: {device.device_id}</Text>
+          <Text style={styles.deviceText}>Device Name: {device.name}</Text>
           <Text
             style={[
               styles.deviceText,
