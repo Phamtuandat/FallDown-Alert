@@ -14,7 +14,6 @@ import { AlertMessage } from '@/models/AlertMessage';
 export default function HomeScreen() {
   const isInitialLoad = useRef(true);
   const navigation = useNavigation();
-  const { logout } = useAuth();
   const [alertMessages, setAlertMessages] = useState<AlertMessage[]>([]);
   const [deviceStatus, setDeviceStatus] = useState<DeviceStatus[]>([]);
 
@@ -22,9 +21,32 @@ export default function HomeScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.LogoutBtn}>Logout</Text>
-        </TouchableOpacity>
+        <Link href="/notification/notifications" asChild >
+          <TouchableOpacity
+            style={styles.logoutButton}
+          >
+            <AntDesign name="bells" size={24} color="white" />
+            {alertMessages.length > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: -5,
+                  right: -5,
+                  backgroundColor: 'red',
+                  borderRadius: 10,
+                  width: 20,
+                  height: 20,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: 'white', fontSize: 12, fontWeight: 'bold' }}>
+                  {alertMessages.length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </Link>
       ),
     });
   }, [navigation]);
@@ -52,6 +74,7 @@ export default function HomeScreen() {
           phone: '1234567890',
           email: 'test@example.com',
           owner: 'John Doe',
+          location: 'Unknown',
         };
 
         const docRef = await addDoc(devicesCol, defaultDevice);
@@ -191,6 +214,19 @@ export default function HomeScreen() {
           >
             Status: {device.status || 'Unknown'}
           </Text>
+          <Text style={styles.deviceText}>Location: {device.location || 'Unknown'}</Text>
+          {device.location && (
+            <Link
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(device.location)}`}
+              asChild
+            >
+              <TouchableOpacity>
+                <Text style={[styles.deviceText, { color: 'blue', textDecorationLine: 'underline' }]}>
+                  View on Map
+                </Text>
+              </TouchableOpacity>
+            </Link>
+          )}
         </TouchableOpacity>
       </Link>
     ));
@@ -240,7 +276,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'red',
     borderRadius: 5,
   },
-  LogoutBtn: {
+  Notification: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',

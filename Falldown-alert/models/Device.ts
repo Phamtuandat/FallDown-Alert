@@ -13,4 +13,5 @@ export type Device = {
     email: string;
     owner: string;
     createdAt: number;
+    location: string;
 }
