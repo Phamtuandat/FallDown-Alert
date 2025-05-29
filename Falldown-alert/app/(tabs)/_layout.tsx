@@ -1,8 +1,8 @@
-import { useAuth } from '@/context/Authprovider';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { router, Tabs, useNavigation } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { TouchableOpacity, Text } from 'react-native';
+import { useAuth } from "@/context/Authprovider";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { router, Tabs, useNavigation } from "expo-router";
+import { useEffect, useState } from "react";
+import { TouchableOpacity, Text } from "react-native";
 
 export default function TabLayout() {
   const { user, logout } = useAuth();
@@ -14,7 +14,7 @@ export default function TabLayout() {
   }, []);
   useEffect(() => {
     if (isMounted && !user) {
-      router.replace('/login');
+      router.replace("/login");
     }
     navigation.setOptions({
       headerTitle: `Welcome, ${user?.email}`,
@@ -25,11 +25,11 @@ export default function TabLayout() {
             marginRight: 10,
             paddingVertical: 5,
             paddingHorizontal: 10,
-            backgroundColor: 'red',
+            backgroundColor: "red",
             borderRadius: 5,
           }}
         >
-          <Text style={{ color: 'white', fontWeight: 'bold' }}>Logout</Text>
+          <Text style={{ color: "white", fontWeight: "bold" }}>Logout</Text>
         </TouchableOpacity>
       ),
     });
@@ -37,7 +37,7 @@ export default function TabLayout() {
 
   const handleLogout = () => {
     logout();
-    router.replace('/login');
+    router.replace("/login");
   };
 
   if (!user) return null;
@@ -45,19 +45,23 @@ export default function TabLayout() {
     return null;
   }
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: 'blue' }}>
+    <Tabs screenOptions={{ tabBarActiveTintColor: "blue" }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="home" color={color} />,
+          title: "Home",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome size={28} name="home" color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <FontAwesome size={28} name="cog" color={color} />,
+          title: "Settings",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome size={28} name="cog" color={color} />
+          ),
         }}
       />
     </Tabs>
