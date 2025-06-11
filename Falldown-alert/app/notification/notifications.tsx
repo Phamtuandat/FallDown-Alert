@@ -6,26 +6,31 @@ import {
   Button,
   ScrollView,
 } from "react-native";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { AlertMessage } from "@/models/AlertMessage";
-import { onValue, push, ref, update } from "firebase/database";
+import { onValue, ref, update } from "firebase/database";
 import { rtdb } from "@/services/Firebase";
+import { ThemeContext } from "@/context/ThemeContext"; // your custom ThemeContext
 
-export default function notifications() {
+export default function Notifications() {
+  const { theme } = useContext(ThemeContext); // use your ThemeContext here
+  const styles = getThemedStyles(theme);
+
   const [alertMessages, setAlertMessages] = useState<AlertMessage[]>([]);
+
   useEffect(() => {
     const messagesRef = ref(rtdb, "alerts");
     const unsubscribe = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const messagesArray: AlertMessage[] = mapToAlertMessages(data);
-        console.log(messagesArray);
         messagesArray.sort((a, b) => b.createdAt - a.createdAt);
         setAlertMessages(messagesArray);
       }
     });
     return () => unsubscribe();
   }, []);
+
   const readAll = () => {
     alertMessages.forEach((msg) => {
       const msgRef = ref(rtdb, `alerts/pr1GoGBZ3EH2KjIonoDm/${msg.id}`);
@@ -34,53 +39,30 @@ export default function notifications() {
   };
 
   return (
-    <View style={{ padding: 20, backgroundColor: "#f9f9f9", flex: 1 }}>
+    <View style={styles.container}>
       <ScrollView>
         {alertMessages.map((message) => (
           <View
             key={message.createdAt}
-            style={{
-              marginBottom: 15,
-              padding: 15,
-              backgroundColor: message.read ? "#e0e0e0" : "#fff",
-              borderRadius: 10,
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 5,
-              elevation: 3,
-              opacity: message.read ? 0.6 : 1,
-            }}
+            style={[
+              styles.messageContainer,
+              { opacity: message.read ? 0.6 : 1 },
+            ]}
           >
-            <Text
-              style={{
-                fontWeight: "bold",
-                fontSize: 16,
-                marginBottom: 5,
-                color: message.read ? "gray" : "black",
-              }}
-            >
+            <Text style={styles.messageTitle}>
               {message.name}
               {message.read && (
                 <Text style={{ fontSize: 12, color: "green" }}> (Read)</Text>
               )}
             </Text>
-            <Text style={{ fontSize: 14, marginBottom: 5 }}>
-              {message.message}
-            </Text>
-            <Text style={{ fontSize: 12, color: "gray", marginBottom: 10 }}>
+            <Text style={styles.messageText}>{message.message}</Text>
+            <Text style={styles.messageDate}>
               {new Date(message.createdAt).toLocaleString()}
             </Text>
             {message.location && (
               <Text
-                style={{
-                  color: "#007BFF",
-                  textDecorationLine: "underline",
-                  fontSize: 14,
-                }}
-                onPress={() => {
-                  Linking.openURL(message.location as string);
-                }}
+                style={styles.locationLink}
+                onPress={() => Linking.openURL(message.location as string)}
               >
                 View Location
               </Text>
@@ -88,22 +70,64 @@ export default function notifications() {
           </View>
         ))}
       </ScrollView>
+
       <View style={styles.buttonContainer}>
         <Button title="Make All As Read" onPress={readAll} />
       </View>
     </View>
   );
 }
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  message: { fontSize: 18, marginVertical: 8 },
-  buttonContainer: {
-    position: "absolute",
-    bottom: 20,
-    left: 20,
-    right: 20,
-  },
-});
+
+function getThemedStyles(theme: any) {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: theme.colors.background,
+    },
+    messageContainer: {
+      marginBottom: 15,
+      padding: 15,
+      backgroundColor: theme.colors.card,
+      borderRadius: 10,
+      shadowColor: theme.dark ? "#000" : "#ccc",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 5,
+      elevation: 3,
+    },
+    messageTitle: {
+      fontWeight: "bold",
+      fontSize: 16,
+      marginBottom: 5,
+      color: theme.colors.text,
+    },
+    messageText: {
+      fontSize: 14,
+      marginBottom: 5,
+      color: theme.colors.text,
+    },
+    messageDate: {
+      fontSize: 12,
+      color: theme.colors.notification,
+      marginBottom: 10,
+    },
+    locationLink: {
+      color: theme.colors.primary,
+      textDecorationLine: "underline",
+      fontSize: 14,
+    },
+    buttonContainer: {
+      position: "absolute",
+      bottom: 20,
+      left: 20,
+      right: 20,
+      color: theme.colors.text,
+      backgroundColor: theme.colors.card,
+    },
+  });
+}
+
 function mapToAlertMessages(input: any): AlertMessage[] {
   return Object.values(input).flatMap((messages) =>
     Object.entries(messages as Record<string, any>).map(([id, msg]) => ({
