@@ -13,18 +13,26 @@ export const ThemeContext = createContext<{
   theme: {
     dark: false,
     colors: {
-      primary: "#007bff",
-      background: "#ffffff",
-      card: "#f8f9fa",
-      text: "#212529",
-      border: "#dee2e6",
-      notification: "#17a2b8",
+      // Primary UI elements (buttons, links)
+      primary: "#0056b3", // deep blue (more contrast than light blue)
 
-      // ✅ Custom colors
-      secondary: "#6c757d", // grayish
-      danger: "#dc3545", // red for errors
-      success: "#28a745", // green for success
+      // Background & surface
+      background: "#ffffff", // stays white for clean readability
+      card: "#f1f1f1", // slightly darker gray for better contrast with white
+
+      // Text
+      text: "#111111", // almost black for better readability
+
+      // Borders
+      border: "#999999", // medium gray for clearer separation
+
+      // Alerts or Notifications
+      notification: "#0d6efd", // vibrant blue (vs. cyan)
+      danger: "#b00020", // deeper red for contrast
+      success: "#2e7d32", // dark green for better visibility
+      secondary: "#495057", // darker secondary gray
     },
+
     fonts: {
       regular: { fontFamily: "System", fontWeight: "normal" },
       medium: { fontFamily: "System", fontWeight: "500" },

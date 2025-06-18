@@ -5,18 +5,49 @@ import {
   StyleSheet,
   Button,
   ScrollView,
+  TouchableOpacity,
+  Alert,
 } from "react-native";
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useLayoutEffect } from "react";
 import { AlertMessage } from "@/models/AlertMessage";
 import { onValue, ref, update } from "firebase/database";
 import { rtdb } from "@/services/Firebase";
 import { ThemeContext } from "@/context/ThemeContext"; // your custom ThemeContext
+import { useNavigation } from "expo-router";
+import { Divider, Menu } from "react-native-paper";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Notifications() {
+  const [menuVisible, setMenuVisible] = useState(false);
+  const openMenu = () => setMenuVisible(true);
+  const closeMenu = () => setMenuVisible(false);
   const { theme } = useContext(ThemeContext); // use your ThemeContext here
   const styles = getThemedStyles(theme);
-
+  const navigation = useNavigation();
   const [alertMessages, setAlertMessages] = useState<AlertMessage[]>([]);
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: "Notifications",
+      headerRight: () => (
+        <Menu
+          visible={menuVisible}
+          onDismiss={closeMenu}
+          anchor={
+            <TouchableOpacity
+              onPress={openMenu}
+              style={{ paddingHorizontal: 16 }}
+            >
+              <Ionicons name="ellipsis-vertical" size={22} color="#000" />
+            </TouchableOpacity>
+          }
+        >
+          <Menu.Item onPress={handleMarkAllRead} title="Mark all as read" />
+          <Divider />
+          <Menu.Item onPress={handleDeleteAll} title="Delete all" />
+        </Menu>
+      ),
+    });
+  }, [navigation, menuVisible]);
 
   useEffect(() => {
     const messagesRef = ref(rtdb, "alerts");
@@ -31,16 +62,29 @@ export default function Notifications() {
     return () => unsubscribe();
   }, []);
 
-  const readAll = () => {
+  const handleMarkAllRead = () => {
     alertMessages.forEach((msg) => {
       const msgRef = ref(rtdb, `alerts/pr1GoGBZ3EH2KjIonoDm/${msg.id}`);
       update(msgRef, { ...msg, read: true });
     });
   };
-
+  const handleDeleteAll = async () => {
+    closeMenu();
+    // WARNING: destructive action!
+    try {
+      await update(ref(rtdb, "alerts"), {}); // clears entire alerts node
+      setAlertMessages([]);
+      Alert.alert("Success", "All alerts deleted.");
+    } catch (error) {
+      Alert.alert("Error", "Failed to delete alerts.");
+    }
+  };
   return (
     <View style={styles.container}>
-      <ScrollView>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 80 }}
+      >
         {alertMessages.map((message) => (
           <View
             key={message.createdAt}
@@ -50,11 +94,12 @@ export default function Notifications() {
             ]}
           >
             <Text style={styles.messageTitle}>
-              {message.name}
-              {message.read && (
-                <Text style={{ fontSize: 12, color: "green" }}> (Read)</Text>
-              )}
+              {message.name}{" "}
+              {message.read ? (
+                <Text style={{ fontSize: 12, color: "green" }}>(Read)</Text>
+              ) : null}
             </Text>
+
             <Text style={styles.messageText}>{message.message}</Text>
             <Text style={styles.messageDate}>
               {new Date(message.createdAt).toLocaleString()}
@@ -72,7 +117,7 @@ export default function Notifications() {
       </ScrollView>
 
       <View style={styles.buttonContainer}>
-        <Button title="Make All As Read" onPress={readAll} />
+        <Button title="Mark All As Read" onPress={handleMarkAllRead} />
       </View>
     </View>
   );
@@ -119,7 +164,7 @@ function getThemedStyles(theme: any) {
     },
     buttonContainer: {
       position: "absolute",
-      bottom: 20,
+      bottom: 60,
       left: 20,
       right: 20,
       color: theme.colors.text,

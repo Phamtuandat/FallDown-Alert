@@ -26,7 +26,12 @@ export default function DeviceDetail() {
   const [needHelp, setNeedHelp] = useState(false);
   const [reason, setReason] = useState("");
   const [reportedAt, setReportedAt] = useState("");
-
+  useEffect(() => {
+    navigation.setOptions({
+      title: { deviceName },
+      headerTitleAlign: "center", // optional, for visual symmetry
+    });
+  }, [navigation]);
   useEffect(() => {
     if (!device_id) return;
 

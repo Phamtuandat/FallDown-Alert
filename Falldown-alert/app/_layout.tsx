@@ -7,48 +7,50 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useRouter } from "expo-router";
-import { useState } from "react";
 import { AuthProvider } from "@/context/Authprovider";
+import { Provider as PaperProvider } from "react-native-paper"; // ✅ added
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
+    if (loaded) SplashScreen.hideAsync();
+
     (async () => {
       const userLoggedIn = false;
       setIsLoggedIn(userLoggedIn);
-      if (!userLoggedIn) {
-      }
     })();
+
     router.replace("/login");
   }, [loaded]);
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <AuthProvider>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="signin" />
-        </Stack>
-        <StatusBar style="auto" />
-      </AuthProvider>
-    </ThemeProvider>
+    <PaperProvider>
+      {" "}
+      {/* ✅ react-native-paper context */}
+      <ThemeProvider value={DefaultTheme}>
+        <AuthProvider>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="signin" />
+          </Stack>
+          <StatusBar style="auto" />
+        </AuthProvider>
+      </ThemeProvider>
+    </PaperProvider>
   );
 }
